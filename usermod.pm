@@ -5,7 +5,7 @@ use Carp;
 use Tie::File;
 use Fcntl qw(:Fcompat :DEFAULT :flock); 
 use vars qw($VERSION);
-$VERSION = 0.62;
+$VERSION = 0.63;
 
 our $file_passwd = '/etc/passwd';
 our $file_shadow = '/etc/shadow';
@@ -59,6 +59,7 @@ sub set {
 	my $flag = shift || 0;
 	my $oldval = $self->[$field{$what}];
 	my $name = $self->[$field{NAME}];
+	_clean($name);
 	$self->[$field{$what}] = $newval;
 	if($field{$what} <= 6){
 		my @file = _io_file("$file_passwd", '', 'r');
@@ -109,7 +110,7 @@ sub _read_user {
 	my (@user, @file);
 	@file = _io_file($file, '', 'r');
 	for(@file){
-		/^$username/ or next;
+		/^(.[^:]*):/ && $1 eq $username or next;
 		my $user = $_;
 		if($flag){
 			for(1..7){
@@ -143,9 +144,9 @@ sub _gen_pass {
 sub _exists {
 	my $username = shift || die "no usrename given";
 	my @file = _io_file("$file_passwd", '', 'r');
-	my @fields;
-	/^$username:/ and @fields = split /:/, $_ for @file;
-	return scalar @fields;
+	my $flag;
+	/^(.[^:]*):/ and $1 eq $username and $flag = 1 for @file;
+	return $flag ? 1 : 0
 }
 
 sub add {
@@ -223,11 +224,11 @@ sub del{
 	_exists($username) or croak "$username does not exist";
 	my @old = _io_file("$file_passwd", '', 'r');
 	my @new;
-	/^$username:/ or push @new, $_ for @old;
+	/^(.[^:]*):/ and $1 eq $username or push @new, $_ for @old;
 	_io_file("$file_passwd", \@new, 'w');
 	@new = ();
 	@old = _io_file("$file_shadow", '', 'r');
-	/^$username:/ or push @new, $_ for @old;
+	/^(.[^:]*):/ and $1 eq $username or push @new, $_ for @old;
 	_io_file("$file_shadow", \@new, 'w');
 }
 
@@ -282,6 +283,15 @@ sub _io_file{
 	}
 }
 	
+sub users{
+	my $class = shift;
+	(my @file) = _io_file("$file_passwd", '', 'r');
+	my (%users, @users);
+	m#^(.[^:]+):# and push @users, $1 for @file;
+	map{ $users{$_} = 1 }@users;
+	return %users
+}
+	
 sub lock{
 	my $self = shift;
 	my $password = $self->get("password");
@@ -300,6 +310,12 @@ sub unlock{
 }
 
 sub _get_1970_diff{ return int time / (3600 * 24) }
+
+sub _clean{
+	my $specchars = \shift;
+	my $special = qr#\$|\*|\@|\^|\+|\.|\?|\)|\(|\||\]|\[|\{|\}#;
+	$$specchars =~ s/($special)/\\$1/g;
+}
 
 1
 
@@ -439,6 +455,9 @@ Lock user account (puts '!' at the beginning of the encoded password)
 
 Unlock user account (removes '!' from the beginning of the encoded password)
 
+=item B<users>
+
+Class method - return hash which keys are all users, teken from $file_passwd
 
 =head1 FILES
 
