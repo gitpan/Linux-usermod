@@ -5,7 +5,7 @@ use Carp;
 use Tie::File;
 use Fcntl qw(:Fcompat :DEFAULT :flock); 
 use vars qw($VERSION);
-$VERSION = 0.6;
+$VERSION = 0.61;
 
 our $file_passwd = '/etc/passwd';
 our $file_shadow = '/etc/shadow';
@@ -118,7 +118,7 @@ sub _read_user {
 				$user[$_ - 1] = $ss;
 			}
 		}else{
-			for(1..8){
+			for(1..9){
 				$user =~ m#(.[^:]*){$_}#;
 				my $ss = $1;
 				$ss =~ s/(^:*|:*$)//;
