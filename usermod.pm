@@ -5,7 +5,7 @@ use Carp;
 use Tie::File;
 use Fcntl qw(:Fcompat :DEFAULT :flock); 
 use vars qw($VERSION);
-$VERSION = 0.5;
+$VERSION = 0.6;
 
 our $file_passwd = '/etc/passwd';
 our $file_shadow = '/etc/shadow';
@@ -34,8 +34,8 @@ sub fields { keys %field }
 sub new {
 	my $class = shift;
 	my $user = shift;
-	(my @args) = _read_user($user, $file_passwd);
-	@args =	(@args, _read_user($user, $file_shadow));
+	(my @args) = _read_user($user, $file_passwd, 1);
+	@args =	(@args, _read_user($user, $file_shadow, 0));
 	croak "no such user" unless scalar @args > 0;
 	return bless [ @args ], ref($class)||$class;
 }
@@ -43,7 +43,7 @@ sub new {
 sub get {
 	my $self = shift;
 	my $what = shift;
-	return $self->[$what] if $what =~ /^\d$/;
+	return $self->[$what] if $what =~ /^\d{1,2}$/;
 	$what = uc $what;
 	return $self->[$field{$what}];
 }
@@ -58,7 +58,7 @@ sub set {
 	my $flag = shift || 0;
 	my $oldval = $self->[$field{$what}];
 	my $name = $self->[$field{NAME}];
-	$self->[$field{$what}] = $newval unless $flag;
+	$self->[$field{$what}] = $newval;
 	if($field{$what} <= 6){
 		my @file = _io_file("$file_passwd", '', 'r');
 		my @user;
@@ -81,16 +81,7 @@ sub set {
 		my @file = _io_file("$file_shadow", '', 'r');
 		$self->[9] = _get_1970_diff() if $field{$what} == 8;
 		if($field{$what} == 8){
-			if($flag =~ /^(l|u)$/){
-				if($flag eq 'l'){
-					$self->[8] =~ /^!/ or $self->[8] =~ s/(.)/!$1/
-				}
-				if($flag eq 'u'){
-					$self->[8] =~ /^!/ and $self->[8] =~ s/^!(.)/$1/
-				}
-			}else{
-				$self->[8] = _gen_pass($self->[$field{$what}])
-			}
+			$self->[8] = _gen_pass($self->[$field{$what}]) unless $flag
 		}
 		my @user;
 		push @user, "$self->[$_]" for 7..15;
@@ -113,11 +104,30 @@ sub set {
 sub _read_user {
 	my $username = shift;
 	my $file = shift;
+	my $flag = shift;
 	my (@user, @file);
 	@file = _io_file($file, '', 'r');
-	for(@file){ /^$username:/ and @user = split /:/, $_ and last }
-	s/\n// for @user;
-	untie @file;
+	for(@file){
+		/^$username/ or next;
+		my $user = $_;
+		if($flag){
+			for(1..7){
+				$user =~ m#(.[^:]*){$_}#;
+				my $ss = $1;
+				$ss =~ s/(^:*|:*$)//;
+				$user[$_ - 1] = $ss;
+			}
+		}else{
+			for(1..8){
+				$user =~ m#(.[^:]*){$_}#;
+				my $ss = $1;
+				$ss =~ s/(^:*|:*$)//;
+				$user[$_ - 1] = $ss;
+			}
+		}
+	}
+	my $c = 0;
+	#++$c and print "$c: $_\n" for @user;
 	return (@user);
 }
 
@@ -131,7 +141,8 @@ sub _gen_pass {
 
 sub _exists {
 	my $username = shift || die "no usrename given";
-	(my @fields) = (_read_user($username, $file_passwd));
+	my @file = _io_file("$file_passwd", '', 'r');
+	/^$username/ and (my @fields) = split /:/, $_ for @file;
 	return scalar @fields;
 }
 
@@ -183,7 +194,12 @@ sub add {
 	my @file = _io_file("$file_passwd", '', 'r');
 	my @ids;
 	push @ids, (split /:/)[2] for @file;
-	for (@ids){ $fields{uid} = 1000 && last if $fields{uid} == $_ }
+	for (@ids){ 
+		if ($fields{uid} == $_){
+			$fields{uid} = 1000;
+			last
+		}
+	}
 	if($fields{uid} == 1000){
 	   for(sort @ids){ 
 		$_ < 1000 and next;
@@ -244,12 +260,18 @@ sub _io_file{
 	
 sub lock{
 	my $self = shift;
-	$self->set('password', 'block', 'l');
+	my $password = $self->get("password");
+	return 1 if $password =~ /^\!/;
+	$password =~ s/(.+)/!$1/;
+	$self->set("password", $password, 1);
 }
 
 sub unlock{
         my $self = shift;
-        $self->set('password', 'block', 'u');
+	my $password = $self->get("password");
+	return 1 if $password !~ /^\!/;
+	$password =~ s/^\!(.+)/$1/;
+        $self->set("password", $password, 1);
 }
 
 sub _get_1970_diff{ return int time / (3600 * 24) }
