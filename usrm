@@ -2,10 +2,10 @@
 use Linux::usermod;
 use Getopt::Std;
 use File::Basename;
-getopt('u:p:s:h:c:k:');
+getopt('u:n:p:s:h:c:k:');
 
 $proname = basename($0);
-die &usage unless $opt_u && $opt_p || $opt_L || $opt_U || $opt_c || $opt_h || $opt_s;
+die &usage unless $opt_u && $opt_p || $opt_L || $opt_U || $opt_c || $opt_h || $opt_s || $opt_n;
 $user = Linux::usermod->new($opt_u);
 die "No such user\n" unless  defined $user->show("uid");
 $salt = $opt_k ? $opt_k : "13";
@@ -13,10 +13,11 @@ $user->change("password", $opt_p, $salt) if $opt_p;
 $user->change("comment", $opt_c) if $opt_c;
 $user->change("home", $opt_h) if $opt_h;
 $user->change("shell", $opt_s) if $opt_s;
+$user->change("name", $opt_n) if $opt_n;
 $user->lock if $opt_L;
 $user->unlock if $opt_U;
 sub usage{ 
-	print "$proname:\n\t-h home\n\t-s shell\n\t-c comment\n\t-p new_password\n\t-U unlock\n\t-L lock\n\t-u username\n";
+	print "$proname:\n\t-n name\n\t-h home\n\t-s shell\n\t-c comment\n\t-p new_password\n\t-U unlock\n\t-L lock\n\t-u username\n";
 	exit 0
 }
 
