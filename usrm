@@ -2,22 +2,37 @@
 use Linux::usermod;
 use Getopt::Std;
 use File::Basename;
-getopt('u:n:p:s:h:c:k:');
+getopt('u:n:p:s:h:c:k:a:d:');
 
 $proname = basename($0);
-die &usage unless $opt_u && $opt_p || $opt_L || $opt_U || $opt_c || $opt_h || $opt_s || $opt_n;
+if(!opt_a or !$opt_d){
+	die &usage unless $opt_u && $opt_p || $opt_L || $opt_U || $opt_c || $opt_h || $opt_s || $opt_n || $opt_a || $opt_d
+}
+Linux::usermod->add($opt_a) and exit if $opt_a;
+Linux::usermod->del($opt_d) and exit if $opt_d;
 $user = Linux::usermod->new($opt_u);
-die "No such user\n" unless  defined $user->show("uid");
-$salt = $opt_k ? $opt_k : "13";
-$user->change("password", $opt_p, $salt) if $opt_p;
-$user->change("comment", $opt_c) if $opt_c;
-$user->change("home", $opt_h) if $opt_h;
-$user->change("shell", $opt_s) if $opt_s;
-$user->change("name", $opt_n) if $opt_n;
+die "No such user\n" unless  defined $user->get(uid);
+$user->set(password, $opt_p) if $opt_p;
+$user->set(comment, $opt_c) if $opt_c;
+$user->set(home, $opt_h) if $opt_h;
+$user->set(shell, $opt_s) if $opt_s;
+$user->set(name, $opt_n) if $opt_n;
 $user->lock if $opt_L;
 $user->unlock if $opt_U;
 sub usage{ 
-	print "$proname:\n\t-n name\n\t-h home\n\t-s shell\n\t-c comment\n\t-p new_password\n\t-U unlock\n\t-L lock\n\t-u username\n";
+	print <<SQ;
+$proname:
+	-n name
+	-a add
+	-d delete
+	-h home
+	-s shell
+	-c comment
+	-p new_password
+	-U unlock
+	-L lock
+	-u username
+SQ
 	exit 0
 }
 
