@@ -327,56 +327,55 @@ Linux::usermod - modify user accounts
 
 =head1 SYNOPSIS
 
-use Linux::usermod;
+  use Linux::usermod;
+  
+  $user = Linux::usermod->new(username);
+  
+  $user->get(gid); # equal to $user->get(3);
+  $user->get(uid); # equal to $user->get(2);
 
-$user = Linux::usermod->new(username);
+  #lock and unlock user account
 
-$user->get(gid); is equal to $user->get(3);
+  $user->lock();
+  $user->unlock();
 
-$user->get(uid); is equal to $user->get(2);
+  #get password(passwd file)
+  $user->get(ppassword);
 
-lock and unlock user account
+  #get encoded password(shadow file)
+  $user->get(password); 
 
-$user->lock();
-$user->unlock();
+  #set encoded password
+  $user->set(password); 
 
-get password(passwd file)
+  #set shell
+  $user->set(shell);
 
-$user->get(ppassword);
+  Linux::usermod->add(username);
 
-get encoded password(shadow file)
+  #or
 
-$user->get(password); 
+  Linux::usermod->add(username, password, uid, gid, comment, home, shell);
 
-set encoded password
-$user->set(password); 
+  #where the password goes in shadow file and gid becomes 
+  #equal to uid unless specified and uid is becoming the 
+  #first unreserved number after 1000 unless specified
 
-$user->set(shell);
+  #delete user
+  Linux::usermod->del(username);
 
-Linux::usermod->add(username);
+  #all fields are returned from the class method fields
+  print $user->get($_) for (Linux::usermod->fields);
 
-or
+  #set working passwd and shadow files
 
-Linux::usermod->add(username, password, uid, gid, comment, home, shell);
-
-where the password goes in shadow file and gid becomes 
-equal to uid unless specified and uid is becoming the 
-first unreserved number after 1000 unless specified
-
-Linux::usermod->del(username);
-
-all fields are returned from the class method fields
-print $user->get($_) for (Linux::usermod->fields);
-
-change passwd and shadow files
-
-$Linux::usermod::file_passwd = "./my_passwd";
-$Linux::usermod::file_shadow = "./my_shadow";
+  #$Linux::usermod::file_passwd = "./my_passwd";
+  #$Linux::usermod::file_shadow = "./my_shadow";
 
 
 =head1 DESCRIPTION
 
-B<Linux::usermod> which adds, removes and modify user account according to 
+B<Linux::usermod> adds, removes and modify user account according to 
 the passwd and shadow files syntax (like struct passwd from pwd.h). It is not necessary 
 those accounts to be system as long as Linux::usermod::file_passwd and Linux::usermod::file_shadow 
 are not in "/etc" directory.
@@ -388,10 +387,8 @@ are not in "/etc" directory.
 =item B<new> 
 	(username)
 
-
 =item B<add> 
 	(username, ...)
-
 
 Class method - add new user account
 arguments to add are optional, except username;
@@ -399,13 +396,9 @@ they may be (username, password, uid, gid, comment, home, shell)
 
 =item B<del> 
 	(username)
-
-
 Class method - removes user account
 
-
 =item B<tobsd> 
-
 converts user fields in shadow / master.passwd file to bsd style
 
 =item B<get> 
@@ -486,7 +479,7 @@ Unlock user account (removes '!' from the beginning of the encoded password)
 
 =item B<users>
 
-Class method - return hash which keys are all users, teken from $file_passwd
+Class method - return hash which keys are all users, taken from $file_passwd
 
 =back
 
