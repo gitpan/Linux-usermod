@@ -4,7 +4,7 @@ use strict;
 use Carp;
 use Fcntl ':flock';
 use vars qw($VERSION);
-$VERSION = 0.66;
+$VERSION = 0.67;
 
 our $file_passwd  = '/etc/passwd';
 our $file_shadow  = '/etc/shadow';
@@ -156,8 +156,8 @@ sub set {
 		croak "invalid name" if $newval !~ /^([A-Z]|[a-z]){1}\w{0,254}/;
 	 	my @file = _io($file_group, '', 'r');
 		my %names;
-		map{ /^(.[^:]+):/ and $names{$1} = 1 }@file;
-		croak "group name $newval already exists" if defined($names{$newval});
+		map{ m#^(.[^:]+):# and $names{$1} }@file;
+		croak "group name $newval already exists" if exists($names{$newval});
 		undef %names;
 		for(@file){
 			/^$oldval:/ or next;
@@ -254,26 +254,30 @@ sub _read_user {
 	@file = _io($file_passwd, '', 'r');
 	for(@file){
 		/^$username:/ or next;
-		my $user = $_;
-		for(1..7){
-			$user =~ m#(.[^:]*){$_}#;
-			my $ss = $1;
-			$ss =~ s/(^:*|:*$)//;
-			$tmp[$_ - 1] = $ss;
-		}
+		@tmp = split(/:/, $_);
+		last
+		#my $user = $_;
+		#for(1..7){
+		#	$user =~ m#(.[^:]*){$_}#;
+		#	my $ss = $1;
+		#	$ss =~ s/(^:*|:*$)//;
+		#	$tmp[$_ - 1] = $ss;
+		#}
 	}
 	@user = @tmp;
 	@tmp = ();
 	@file = _io($file_shadow, '', 'r');
 	for(@file){
 		/^$username:/ or next;
-		my $user = $_;
-		for(1..9){
-			$user =~ m#(.[^:]*){$_}#;
-			my $ss = $1;
-			$ss =~ s/(^:*|:*$)//;
-			$tmp[$_ - 1] = $ss;
-		}
+		@tmp = split(/:/, $_);
+		last
+		#my $user = $_;
+		#for(1..9){
+		#	$user =~ m#(.[^:]*){$_}#;
+		#	my $ss = $1;
+		#	$ss =~ s/(^:*|:*$)//;
+		#	$tmp[$_ - 1] = $ss;
+		#} last
 	}
 	@user = (@user, @tmp);
 	return (@user);
@@ -426,31 +430,35 @@ sub grpdel {
 
 sub _read_grp {
 	my $group = shift or croak "empty group name/gid";
-	my (@tmp, @grp);
+	my (@tmp, @grp, @gsh);
 	my @file  = _io("$file_group", '', 'r');
 	for(@file){
 		/^$group:/ or next;
-		my $user = $_;
-		for(1..4){
-			$user =~ /(.[^:]*){$_}/;
-			my $ss = $1;
-			$ss =~ s/(^:*|:*$)//;
-			$tmp[$_ - 1] = $ss;
-		}
+		#my $user = $_;
+		@grp = split(/:/, $_);
+		last
+		#for(1..4){
+		#	$user =~ /(.[^:]*){$_}/;
+		#	my $ss = $1;
+		#	$ss =~ s/(^:*|:*$)//;
+		#	$tmp[$_ - 1] = $ss;
+		#} last 
 	}
-	@grp = @tmp;
+	#@grp = @tmp;
 	@file  = _io("$file_gshadow", '', 'r');
 	for(@file){
 		/^$group:/ or next;
-		my $user = $_;
-		for(1..4){
-			$user =~ /(.[^:]*){$_}/;
-			my $ss = $1;
-			$ss =~ s/(^:*|:*$)//;
-			$tmp[$_ - 1] = $ss;
-		}
+		#my $user = $_;
+		@gsh = split(/:/, $_);
+		last
+		#for(1..4){
+		#	$user =~ /(.[^:]*){$_}/;
+		#	my $ss = $1;
+		#	$ss =~ s/(^:*|:*$)//;
+		#	$tmp[$_ - 1] = $ss;
+		#} last
 	}
-	@grp = (@grp, @tmp);
+	@grp = (@grp, @gsh);
 	return (@grp)
 	
 }
@@ -592,7 +600,7 @@ Linux::usermod - modify user and group accounts
   $grp->set(ga);
 
   #set group users
-  @users = wq(user1 user2);
+  @users = qw(user1 user2);
   $grp->set(users, "@users");
   
   Linux::usermod->add(username);
@@ -701,9 +709,10 @@ argument can be either string or number
 
 (field) 
 
-seet a field which must be string of characters:
-keys %fields for user object
-keys %gfields for group object
+set a field which must be string of characters:
+
+  @user_fields = Linux::usermod->fields;	#user fields
+  @group_fields = Linux::usermod->gfields;	#group fields
 
 =item grpadd
 
