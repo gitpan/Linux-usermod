@@ -1,27 +1,36 @@
 #!/usr/bin/perl
-use 5.6.0;
-use usermod;
+use Linux::usermod;
 use Getopt::Std;
 use File::Basename;
-getopt('u:n:p:s:h:c:k:a:d:');
-
-
-$usermod::file_passwd = "passwd";
-$usermod::file_shadow = "shadow";
+getopt('u:n:p:s:h:c:k:a:d:A:D:');
 
 $proname = basename($0);
-if(!opt_a or !$opt_d){
-	die &usage unless $opt_u && $opt_p || $opt_L || $opt_U || $opt_c || $opt_h || $opt_s || $opt_n || $opt_a || $opt_d
+if(!opt_a or !$opt_d or !$opt_b){
+	die &usage unless $opt_u && $opt_p || 
+	$opt_L || 
+	$opt_U || 
+	$opt_c || 
+	$opt_h || 
+	$opt_s || 
+	$opt_n || 
+	$opt_a || 
+	$opt_d || 
+	$opt_b || 
+	$opt_A || 
+	$opt_D
 }
-usermod->add($opt_a) and exit if $opt_a;
-usermod->del($opt_d) and exit if $opt_d;
-$user = usermod->new($opt_u);
+Linux::usermod->add($opt_a) and exit if $opt_a;
+Linux::usermod->del($opt_d) and exit if $opt_d;
+Linux::usermod->grpadd($opt_A) and exit if $opt_A;
+Linux::usermod->grpdel($opt_D) and exit if $opt_D;
+$user = Linux::usermod->new($opt_u);
 die "No such user\n" unless  defined $user->get(uid);
 $user->set(password, $opt_p) if $opt_p;
 $user->set(comment, $opt_c) if $opt_c;
 $user->set(home, $opt_h) if $opt_h;
 $user->set(shell, $opt_s) if $opt_s;
 $user->set(name, $opt_n) if $opt_n;
+$user->tobsd() if $opt_b;
 $user->lock if $opt_L;
 $user->unlock if $opt_U;
 sub usage{ 
@@ -30,6 +39,7 @@ $proname:
 	-n name
 	-a add
 	-d delete
+	-b to bsd style
 	-h home
 	-s shell
 	-c comment
@@ -37,6 +47,8 @@ $proname:
 	-U unlock
 	-L lock
 	-u username
+	-A groupname
+	-D groupname
 SQ
 	exit 0
 }

@@ -4,7 +4,7 @@ use strict;
 use Carp;
 use Fcntl ':flock';
 use vars qw($VERSION);
-$VERSION = 0.68;
+$VERSION = 0.69;
 
 our $file_passwd  = '/etc/passwd';
 our $file_shadow  = '/etc/shadow';
@@ -107,7 +107,7 @@ sub set {
 		my @user;
 		push @user, $self->[$_] for 0..6;
 		my $user = join ':', @user;
-		for(@file){ s/.+/$user/ if /^$name:/ }
+		for(@file){ s/.+/$user/ if /^\Q$name\E:/ }
 		_io("$file_passwd", \@file, 'w');
 		if($field{$what} == 0){
 			croak "invalid name" if $newval !~ /^([A-Z]|[a-z]){1}\w{0,254}/;
@@ -120,8 +120,8 @@ sub set {
 			push @user, $self->[$_] for 8..14;
 			unshift @user, $self->[0];
 			$user = join ':', @user;
-			for(@file){ s/.+/$user/ if /^$name:/ }
-			_io("$file_shadow", \@file, 'w');
+			for(@file){ s/.+/$user/ if /^\Q$name\E:/ }
+			_io("$file_shadow", \@file, 'w') and return 1
 		}
 		
 	 }
@@ -135,7 +135,7 @@ sub set {
 		my @user;
 		push @user, "$self->[$_]" for 7..15;
 		my $user = join ':', @user;
-		for(@file){ s/.+/$user/ if /^$name:/ }
+		for(@file){ s/.+/$user/ if /^\Q$name\E:/ }
 		_io("$file_shadow", \@file, 'w');
 		if($field{$what} == 7){
 			@file = @user = ();
@@ -143,8 +143,8 @@ sub set {
 			push @user, $self->[$_] for 1..6;
 			unshift @user, $self->[7];
 			$user = join ':', @user;
-			for(@file){ s/.+/$user/ if /^$name:/ }
-			_io("$file_passwd", \@file, 'w');
+			for(@file){ s/.+/$user/ if /^\Q$name\E:/ }
+			_io("$file_passwd", \@file, 'w') and return 1
 		}
 	 }
 	}
@@ -172,9 +172,9 @@ sub set {
 			my $newline = "$self->[4]:$self->[5]:$self->[6]:$self->[7]";
 			s/.+/$newline/;
 		}
-		_io($file_gshadow, \@file, 'w');
+		_io($file_gshadow, \@file, 'w') and return 1
 	 }
-	 elsif($gfield{$what} == 3 or $gfield{$what} == 7){
+	 if($gfield{$what} == 3 or $gfield{$what} == 7){
 		for(split /\s+/, $newval){
 			croak "$_ does not exist" unless(_exists($_))
 		}
@@ -182,7 +182,7 @@ sub set {
 		$self->[3] = $users;
 		my @file = _io($file_group, '', 'r');
 		for(@file){
-			/^$name:/ or next;
+			/^\Q$name\E:/ or next;
 			my $newline = "$self->[0]:$self->[1]:$self->[2]:$self->[3]";
 			s/.+/$newline/;
 		}
@@ -190,62 +190,63 @@ sub set {
 		@file = _io($file_gshadow, '', 'r');
 		$self->[7] = $users;
 		for(@file){
-			/^$name:/ or next;
+			/^\Q$name\E:/ or next;
 			my $newline = "$self->[4]:$self->[5]:$self->[6]:$self->[3]";
 			s/.+/$newline/;
 		}
-		_io($file_gshadow, \@file, 'w');
+		_io($file_gshadow, \@file, 'w') and return 1
 	 }
-	 elsif($gfield{$what} == 2){	
+	 if($gfield{$what} == 2){	
 	 	croak "wrong group id" if $newval < 1 or $newval > 65535;
 		my %ids;
 		my @file  = _io("$file_group", '', 'r');
 		map { /^.+?:.*?:(.+):/ and $ids{$1} = 1 } @file;
 		croak "group id $newval already exists" if $ids{$newval};
 		for(@file){
-			/^$name:/ or next;
+			/^\Q$name\E:/ or next;
 			my $newline = "$self->[0]:$self->[1]:$self->[2]:$self->[3]";
 			s/.+/$newline/;
 		}
-		_io($file_group, \@file, 'w'); 
+		_io($file_group, \@file, 'w') and return 1
 	 }
-	 elsif($gfield{$what} == 6){
+	 if($gfield{$what} == 6){
 		croak "user $newval does not exist" unless(_exists($newval));
 		$self->[6] = $newval;
 		my @file = _io($file_gshadow, '', 'r');
 		for(@file){
-		        /^$name:/ or next;
+		        /^\Q$name\E:/ or next;
 			my $newline = "$self->[4]:$self->[5]:$self->[6]:$self->[7]";
 			s/.+/$newline/;
 		}
-		_io($file_gshadow, \@file, 'w');
+		_io($file_gshadow, \@file, 'w') and return 1
 	 }
-	 elsif($gfield{$what} == 2 or $gfield{$what} == 5){
+	 if($gfield{$what} == 1 or $gfield{$what} == 5){
 	 	no strict 'refs';
 	 	my $salt = join '', ('a'..'z', 'A'..'Z', 0..9)[rand 26,rand 26,rand 26];
-		$salt->[1] = 'x';
 		my $newpass;
 		if($newval)
 			{ $newpass = crypt($newval, $salt) }
 		else
 			{ $newpass = '!' }
 		my @file = _io($file_gshadow, '', 'r');
+		$self->[1] = 'x';
+		$self->[5] = $newpass;
 		for(@file){
-		        /^$name:/ or next;
-			my $newline = "$self->[4]:$newpass:$self->[6]:$self->[7]";
-			s/.+/$newline/;
+		        /^\Q$name\E:/ or next;
+			my $newline = "$self->[4]:$self->[5]:$self->[6]:$self->[7]";
+			s/.+/$newline/; 
 		}
 		_io($file_gshadow, \@file, 'w');
 		@file = _io($file_group, '', 'r');
 		for(@file){
-		        /^$name:/ or next;
+		        /^\Q$name\E:/ or next;
 			my $newline = "$self->[0]:$self->[1]:$self->[2]:$self->[3]";
 			s/.+/$newline/;
 		}
-		_io($file_group, \@file, 'w');
+		_io($file_group, \@file, 'w') and return 1
 	 }
 	}
-	return 1
+	return 0
 }
 
 sub _read_user {
@@ -253,7 +254,7 @@ sub _read_user {
 	my (@user, @tmp, @file);
 	@file = _io($file_passwd, '', 'r');
 	for(@file){
-		/^$username:/ or next;
+		/^\Q$username\E:/ or next;
 		my $user = $_;
 		for(1..7){
 			$user =~ m#(.[^:]*){$_}#;
@@ -266,7 +267,7 @@ sub _read_user {
 	@tmp = ();
 	@file = _io($file_shadow, '', 'r');
 	for(@file){
-		/^$username:/ or next;
+		/^\Q$username\E:/ or next;
 		my $user = $_;
 		for(1..9){
 			$user =~ m#(.[^:]*){$_}#;
@@ -295,7 +296,7 @@ sub _exists {
 	my $file	= ($gflag) ? "$file_group" : "$file_passwd"; 
 	my @file	= _io("$file", '', 'r');
 	my $flag;
-	/^$name:/ and $flag = 1 for @file;
+	/^\Q$name\E:/ and $flag = 1 for @file;
 	return $flag ? 1 : 0
 }
 
@@ -398,11 +399,11 @@ sub del {
 	_exists($username) or croak "user $username does not exist";
 	my @old = _io("$file_passwd", '', 'r');
 	my @new;
-	/^(.[^:]*):/ and $1 eq $username or push @new, $_ for @old;
+	/^\Q$username\E:/ or push @new, $_ for @old;
 	_io("$file_passwd", \@new, 'w');
 	@new = ();
 	@old = _io("$file_shadow", '', 'r');
-	/^(.[^:]*):/ and $1 eq $username or push @new, $_ for @old;
+	/^\Q$username\E:/ or push @new, $_ for @old;
 	_io("$file_shadow", \@new, 'w');
 	return 1
 }
@@ -460,7 +461,7 @@ sub tobsd{
 	my $name = $self->get('name');
 	my @user;
 	for(@file){
-		/^$name:/ or next;
+		/^\Q$name\E:/ or next;
 		push @user, $name, ':';
 		push @user, $self->get('password'), ':';
 		push @user, $self->get('uid'), ':';
@@ -484,7 +485,7 @@ sub _io{
 	my $flag = shift;
 	my @file;
 	croak $! unless -f $file;
-	#die "not an array ref" unless ref $newvals eq 'ARRAY';
+	local *FH;
 	die "posible flags: r/w/a" unless $flag =~ /^(r|w|a)$/;
 	if($flag eq 'r'){
 		open FH, $file or croak "can't open_r $file $!";
@@ -498,12 +499,14 @@ sub _io{
 		open FH, "> $file" or croak "can't open_w $file $!";
 		flock FH, LOCK_EX or croak "can't lock_ex $file";
 		print FH "$_\n" for @{$newvals};
+		close FH;
 		return 1
 	}
 	if($flag eq 'a'){
 		open FH, ">> $file" or croak "can't open_a $file $!";
 		flock FH, LOCK_EX or croak "can't lock_ex $file";
 		print FH "$_\n" for @{$newvals};
+		close FH;
 		return 1
 	}
 }
