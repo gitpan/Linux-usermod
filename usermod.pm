@@ -142,7 +142,8 @@ sub _gen_pass {
 sub _exists {
 	my $username = shift || die "no usrename given";
 	my @file = _io_file("$file_passwd", '', 'r');
-	/^$username/ and (my @fields) = split /:/, $_ for @file;
+	my @fields;
+	/^$username/ and @fields = split /:/, $_ for @file;
 	return scalar @fields;
 }
 
