@@ -2,12 +2,14 @@ package Linux::usermod;
 
 use strict;
 use Carp;
+use Tie::File;
+use Fcntl qw(:Fcompat :DEFAULT :flock); 
 use vars qw($VERSION);
-$VERSION = 0.4;
+$VERSION = 0.5;
 
 our $file_passwd = '/etc/passwd';
 our $file_shadow = '/etc/shadow';
- 
+
 my %field = (
 	NAME       => 0,	#The user's name
 	PPASSWORD  => 1,	#The "passwd" file password
@@ -64,6 +66,15 @@ sub set {
 		my $user = join ':', @user;
 		for(@file){ s/.+/$user/ if /^$name:/ }
 		_io_file("$file_passwd", \@file, 'w');
+		if($field{$what} == 0){
+			@file = @user = ();
+			@file = _io_file("$file_shadow", '', 'r');
+			push @user, $self->[$_] for 8..14;
+			unshift @user, $self->[0];
+			$user = join ':', @user;
+			for(@file){ s/.+/$user/ if /^$name:/ }
+			_io_file("$file_shadow", \@file, 'w');
+		}
 		
 	}
 	if($field{$what} > 6){	
@@ -86,6 +97,15 @@ sub set {
 		my $user = join ':', @user;
 		for(@file){ s/.+/$user/ if /^$name:/ }
 		_io_file("$file_shadow", \@file, 'w');
+		if($field{$what} == 7){
+			@file = @user = ();
+			@file = _io_file("$file_passwd", '', 'r');
+			push @user, $self->[$_] for 1..6;
+			unshift @user, $self->[7];
+			$user = join ':', @user;
+			for(@file){ s/.+/$user/ if /^$name:/ }
+			_io_file("$file_passwd", \@file, 'w');
+		}
 	}	
 	return 1
 }
@@ -93,12 +113,11 @@ sub set {
 sub _read_user {
 	my $username = shift;
 	my $file = shift;
-	my @user;
-	local *FH;
-	open FH, "$file" or croak "cannot open_r $file";
-	while(<FH>){ /^$username:/ and @user = split /:/, $_ and last }
-	close FH;
+	my (@user, @file);
+	@file = _io_file($file, '', 'r');
+	for(@file){ /^$username:/ and @user = split /:/, $_ and last }
 	s/\n// for @user;
+	untie @file;
 	return (@user);
 }
 
@@ -164,7 +183,7 @@ sub add {
 	my @file = _io_file("$file_passwd", '', 'r');
 	my @ids;
 	push @ids, (split /:/)[2] for @file;
-	for(@ids){ $fields{uid} = 1000 and last if $fields{uid} == $_ }
+	for (@ids){ $fields{uid} = 1000 && last if $fields{uid} == $_ }
 	if($fields{uid} == 1000){
 	   for(sort @ids){ 
 		$_ < 1000 and next;
@@ -193,39 +212,32 @@ sub del{
 	/^$username:/ or push @new, $_ for @old;
 	_io_file("$file_shadow", \@new, 'w');
 	return 1
-	
 }
 
 sub _io_file{
-	no strict;
         my $file = shift;
-	my $ref_f = shift;
+	my $newvals = shift;
 	my $flag = shift;
+	my (@file, @retval);
 	croak $! unless -f $file;
 	croak "posible flags: r/w/a" unless $flag =~ /^(r|w|a)$/;
 	if($flag eq 'r'){
-		@{$ref_f} = ();
-		local *FH;
-		open FH, $file or croak "cannot open_r $file";
-		flock FH, 1;
-		$_ =~ s/\n// and push @{$ref_f}, $_ while <FH>;
-		close FH;
-		return @{$ref_f}
+		tie @file, 'Tie::File', $file, mode => O_RDONLY | LOCK_EX;
+		@retval = @file;
+		untie @file;
+		return @retval
 	}
 	if($flag eq 'w'){
-		local *FH;
-		open FH, "> $file" or croak "cannot open_w $file";
-		flock FH, 2;
-		print FH "$_\n" for @{$ref_f};
-		close FH;
+		tie @file, 'Tie::File', $file, mode => O_RDWR | LOCK_EX;
+		@file = ();
+		push @file, "$_\n" for @{$newvals};
+		untie @file;
 		return 1
 	}
 	if($flag eq 'a'){
-		local *FH;
-		open FH, ">> $file" or croak "cannot open_a $file";
-		flock FH, 2;
-		print FH "$_\n" for @{$ref_f};
-		close FH;
+		tie @file, 'Tie::File', $file, mode => O_RDWR | LOCK_EX;
+		push @file, "$_\n" for @{$newvals};
+		untie @file;
 		return 1
 	}
 }
@@ -376,6 +388,10 @@ Unlock user account (removes '!' from the beginning of the encoded password)
 B</etc/passwd>, B</etc/shadow> unless given your own B<passwd> and B<shadow> files
 which must be created no matter what their names are as long as Linux::usermod::file_passwd
 and Linux::usermod::file_shadow vars know about them
+
+=head1 TO DO
+
+Groups management
 
 =head1 SEE ALSO
 
