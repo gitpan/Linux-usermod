@@ -49,3 +49,4 @@ ok($gname,	$grp->get("name")) or warn "\tgroup name field unrecognized\n";
 ok($users,	$grp->get("users")) or warn "\tgroup users field unrecognized\n";
 ok($gadm,	$grp->get("ga")) or warn "\tgroup administrator field unrecognized\n";
 
+for($passwd, $shadow, $group, $gshadow){ unlink $_ }

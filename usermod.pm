@@ -4,7 +4,7 @@ use strict;
 use Carp;
 use Fcntl ':flock';
 use vars qw($VERSION);
-$VERSION = 0.67;
+$VERSION = 0.68;
 
 our $file_passwd  = '/etc/passwd';
 our $file_shadow  = '/etc/shadow';
@@ -254,30 +254,26 @@ sub _read_user {
 	@file = _io($file_passwd, '', 'r');
 	for(@file){
 		/^$username:/ or next;
-		@tmp = split(/:/, $_);
-		last
-		#my $user = $_;
-		#for(1..7){
-		#	$user =~ m#(.[^:]*){$_}#;
-		#	my $ss = $1;
-		#	$ss =~ s/(^:*|:*$)//;
-		#	$tmp[$_ - 1] = $ss;
-		#}
+		my $user = $_;
+		for(1..7){
+			$user =~ m#(.[^:]*){$_}#;
+			my $ss = $1;
+			$ss =~ s/(^:*|:*$)//;
+			$tmp[$_ - 1] = $ss;
+		} last
 	}
 	@user = @tmp;
 	@tmp = ();
 	@file = _io($file_shadow, '', 'r');
 	for(@file){
 		/^$username:/ or next;
-		@tmp = split(/:/, $_);
-		last
-		#my $user = $_;
-		#for(1..9){
-		#	$user =~ m#(.[^:]*){$_}#;
-		#	my $ss = $1;
-		#	$ss =~ s/(^:*|:*$)//;
-		#	$tmp[$_ - 1] = $ss;
-		#} last
+		my $user = $_;
+		for(1..9){
+			$user =~ m#(.[^:]*){$_}#;
+			my $ss = $1;
+			$ss =~ s/(^:*|:*$)//;
+			$tmp[$_ - 1] = $ss;
+		} last
 	}
 	@user = (@user, @tmp);
 	return (@user);
@@ -430,37 +426,32 @@ sub grpdel {
 
 sub _read_grp {
 	my $group = shift or croak "empty group name/gid";
-	my (@tmp, @grp, @gsh);
+	my (@tmp, @grp);
 	my @file  = _io("$file_group", '', 'r');
 	for(@file){
 		/^$group:/ or next;
-		#my $user = $_;
-		@grp = split(/:/, $_);
-		last
-		#for(1..4){
-		#	$user =~ /(.[^:]*){$_}/;
-		#	my $ss = $1;
-		#	$ss =~ s/(^:*|:*$)//;
-		#	$tmp[$_ - 1] = $ss;
-		#} last 
+		my $user = $_;
+		for(1..4){
+			$user =~ /(.[^:]*){$_}/;
+			my $ss = $1;
+			$ss =~ s/(^:*|:*$)//;
+			$tmp[$_ - 1] = $ss;
+		} last 
 	}
-	#@grp = @tmp;
+	@grp = @tmp;
 	@file  = _io("$file_gshadow", '', 'r');
 	for(@file){
 		/^$group:/ or next;
-		#my $user = $_;
-		@gsh = split(/:/, $_);
-		last
-		#for(1..4){
-		#	$user =~ /(.[^:]*){$_}/;
-		#	my $ss = $1;
-		#	$ss =~ s/(^:*|:*$)//;
-		#	$tmp[$_ - 1] = $ss;
-		#} last
+		my $user = $_;
+		for(1..4){
+			$user =~ /(.[^:]*){$_}/;
+			my $ss = $1;
+			$ss =~ s/(^:*|:*$)//;
+			$tmp[$_ - 1] = $ss;
+		} last
 	}
-	@grp = (@grp, @gsh);
+	@grp = (@grp, @tmp);
 	return (@grp)
-	
 }
 
 sub tobsd{
