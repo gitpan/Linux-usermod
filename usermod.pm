@@ -5,7 +5,7 @@ use Carp;
 use Tie::File;
 use Fcntl qw(:Fcompat :DEFAULT :flock); 
 use vars qw($VERSION);
-$VERSION = 0.61;
+$VERSION = 0.62;
 
 our $file_passwd = '/etc/passwd';
 our $file_shadow = '/etc/shadow';
@@ -34,9 +34,9 @@ sub fields { keys %field }
 sub new {
 	my $class = shift;
 	my $user = shift;
+	croak "no such user" unless _exists($user);
 	(my @args) = _read_user($user, $file_passwd, 1);
 	@args =	(@args, _read_user($user, $file_shadow, 0));
-	croak "no such user" unless scalar @args > 0;
 	return bless [ @args ], ref($class)||$class;
 }
 
@@ -55,6 +55,7 @@ sub set {
 	return 0 unless exists($field{$what});
 	return 0 unless my $newval = shift;
 	return 0 if $newval =~ /:/ and $field{$what} != 8; 
+	$newval = '' if $newval eq 'undef';
 	my $flag = shift || 0;
 	my $oldval = $self->[$field{$what}];
 	my $name = $self->[$field{NAME}];
@@ -80,7 +81,7 @@ sub set {
 	if($field{$what} > 6){	
 		my @file = _io_file("$file_shadow", '', 'r');
 		$self->[9] = _get_1970_diff() if $field{$what} == 8;
-		if($field{$what} == 8){
+		if($field{$what} == 8 && $newval){
 			$self->[8] = _gen_pass($self->[$field{$what}]) unless $flag
 		}
 		my @user;
@@ -143,7 +144,7 @@ sub _exists {
 	my $username = shift || die "no usrename given";
 	my @file = _io_file("$file_passwd", '', 'r');
 	my @fields;
-	/^$username/ and @fields = split /:/, $_ for @file;
+	/^$username:/ and @fields = split /:/, $_ for @file;
 	return scalar @fields;
 }
 
@@ -228,7 +229,29 @@ sub del{
 	@old = _io_file("$file_shadow", '', 'r');
 	/^$username:/ or push @new, $_ for @old;
 	_io_file("$file_shadow", \@new, 'w');
-	return 1
+}
+
+sub tobsd{
+	my $self = shift;
+	(my @file) = _io_file("$file_shadow", '', 'r');
+	my $name = $self->get('name');
+	my @user;
+	for(@file){
+		/^$name:/ or next;
+		push @user, $name, ':';
+		push @user, $self->get('password'), ':';
+		push @user, $self->get('uid'), ':';
+		push @user, $self->get('gid'), ':';
+		push @user, ':';
+		push @user, $self->get('expire') || 0, ':';
+		push @user, $self->get('expire') || 0, ':';
+		push @user, $self->get('comment'), ':';
+		push @user, $self->get('home'), ':';
+		push @user, $self->get('shell');
+		my $user = join '', @user;
+		s/.*/$user/;
+	}
+	_io_file("$file_shadow", \@file, 'w');
 }
 
 sub _io_file{
@@ -263,7 +286,7 @@ sub lock{
 	my $self = shift;
 	my $password = $self->get("password");
 	return 1 if $password =~ /^\!/;
-	$password =~ s/(.+)/!$1/;
+	$password =~ s/(.*)/!$1/;
 	$self->set("password", $password, 1);
 }
 
@@ -271,7 +294,8 @@ sub unlock{
         my $self = shift;
 	my $password = $self->get("password");
 	return 1 if $password !~ /^\!/;
-	$password =~ s/^\!(.+)/$1/;
+	$password =~ s/^\!//;
+	$password or $password = 'undef';
         $self->set("password", $password, 1);
 }
 
@@ -328,7 +352,9 @@ are not in "/etc" directory.
 
 =item B<new> (username)
 
+
 =item B<add> (username, ...)
+
 
 Class method - add new user account
 arguments to add are optional, except username;
@@ -336,7 +362,11 @@ they may be (username, password, uid, gid, comment, home, shell)
 
 =item B<del> (username)
 
+
 Class method - removes user account
+
+=item B<tobsd> converts user fields in shadow / master.passwd file to bsd style
+
 
 =item B<get> get one of the following fields:
 	
@@ -394,17 +424,21 @@ or 15 - Currently not used
 
 either string or number can be argument
 
+
 =item B<set> (field) 
 
 set a field which must be string, but not a number
+
 
 =item B<lock> (username)
 
 Lock user account (puts '!' at the beginning of the encoded password)
 
+
 =item B<unlock>
 
 Unlock user account (removes '!' from the beginning of the encoded password)
+
 
 =head1 FILES
 
