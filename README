@@ -1,8 +1,113 @@
-Please, take a look at the simple example 'usrm'.
+NAME
+    Linux::usermod - modify user accounts
 
-installation:
+SYNOPSIS
+    use Linux::usermod;
 
-make realclean 2>/dev/null
-perl Makefile.PL
-make && make test && make install
-make realclean
+    $user = Linux::usermod->new(username);
+
+    #all fields are returned from the class method fields
+
+    $user->get(gid); #or the same $user->get(3); $user->get(uid); #the same
+    $user->get(2); $user->get(shell); #the same $user->get(6);
+    $user->get(ppassword); #passwd file $user->get(password); #shadow file -
+    the encoded password
+
+    $user->set(password); $user->set(shell);
+
+    Linux::usermod->add(username);
+
+    #or
+
+    Linux::usermod->add(username, password, uid, gid, comment, home, shell);
+
+    #where the password goes in shadow file and gid becomes equal to uid
+    unless specified #and uid is becoming the first unreserved number after
+    1000 unless specified
+
+    Linux::usermod->del(username);
+
+    print $user->get($_) for (Linux::usermod->fields);
+
+DESCRIPTION
+    Linux::usermod which adds, removes and modify user account according to
+    the passwd and shadow files syntax (like struct passwd from pwd.h). It
+    is not necessary those accounts to be system as long as
+    Linux::usermod::file_passwd and Linux::usermod::file_shadow are not in
+    "/etc" directory.
+
+METHODS
+    new (username)
+    add (username, ...)
+        Class method - add new user account arguments to add are optional,
+        except username; they may be (username, password, uid, gid, comment,
+        home, shell)
+
+    del (username)
+        Class method - removes user account
+
+    tobsd converts user fields in shadow / master.passwd file to bsd style
+    get get one of the following fields:
+
+        NAME or 0 - The user's name
+        PPASSWORD or 1 - The "passwd" file password
+        UID or 2 - The user's id
+        GID or 3 - The user's group id
+        COMMENT or 4 - The Comment about the user (real username)
+        HOME or 5 - The user's home directory
+        SHELL or 6 - The user's shell
+        SNAME or 7 - The user's name in shadow file
+        PASSWORD or 8 - The 13-character encoded password
+        LASTCHG or 9 - The number of days from January 1, 1970 of the last
+        password changed date
+        MIN or 10 - The minimum number of days required between password
+        changes
+        MAX or 11 - The maximum number of days the password is valid
+        WARN or 12 - The number of days before expiring the password that
+        the user is warned
+        INACTIVE or 13 - The number of days of inactivity allowed for the
+        user
+        EXPIRE or 14 - The absolute date after which the login may no longer
+        be used
+        FLAG or 15 - Currently not used
+
+        either string or number can be argument
+
+    set (field)
+        set a field which must be string, but not a number
+
+    lock (username)
+        Lock user account (puts '!' at the beginning of the encoded
+        password)
+
+    unlock (username)
+        Unlock user account (removes '!' from the beginning of the encoded
+        password)
+
+    users
+        Class method - return hash which keys are all users, teken from
+        $file_passwd
+
+FILES
+        /etc/passwd, /etc/shadow unless given your own passwd and shadow
+        files which must be created no matter what their names are as long
+        as Linux::usermod::file_passwd and Linux::usermod::file_shadow vars
+        know about them
+
+TO DO
+        Groups management
+
+SEE ALSO
+        getpwent(3), getpwnam(3), usermod(8), passwd(8)
+
+BUGS
+        None known. Report any to author.
+
+AUTHOR
+        Vidul Petrov, vidul@abv.bg
+
+        © 2004 Vidul Petrov. All rights reserved.
+
+        This library is free software; you can redistribute it and/or modify
+        it under the same terms as Perl itself.
+

@@ -366,25 +366,30 @@ are not in "/etc" directory.
 
 =over 4
 
-=item B<new> (username)
+=item B<new> 
+	(username)
 
 
-=item B<add> (username, ...)
+=item B<add> 
+	(username, ...)
 
 
 Class method - add new user account
 arguments to add are optional, except username;
 they may be (username, password, uid, gid, comment, home, shell)
 
-=item B<del> (username)
+=item B<del> 
+	(username)
 
 
 Class method - removes user account
 
-=item B<tobsd> converts user fields in shadow / master.passwd file to bsd style
+=item B<tobsd> 
+	converts user fields in shadow / master.passwd file to bsd style
 
 
-=item B<get> get one of the following fields:
+=item B<get> 
+	get one of the following fields:
 	
 =over 4
 
@@ -441,18 +446,21 @@ or 15 - Currently not used
 either string or number can be argument
 
 
-=item B<set> (field) 
+=item B<set> 
+	(field) 
 
 set a field which must be string, but not a number
 
 
-=item B<lock> (username)
+=item B<lock> 
+	(username)
 
 Lock user account (puts '!' at the beginning of the encoded password)
 
 
 =item B<unlock>
-
+	(username)
+	
 Unlock user account (removes '!' from the beginning of the encoded password)
 
 =item B<users>
