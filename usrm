@@ -1,17 +1,21 @@
 #!/usr/bin/perl
-use 5.8.3;
-use Linux::usermod;
+use 5.6.0;
+use usermod;
 use Getopt::Std;
 use File::Basename;
 getopt('u:n:p:s:h:c:k:a:d:');
+
+
+$usermod::file_passwd = "passwd";
+$usermod::file_shadow = "shadow";
 
 $proname = basename($0);
 if(!opt_a or !$opt_d){
 	die &usage unless $opt_u && $opt_p || $opt_L || $opt_U || $opt_c || $opt_h || $opt_s || $opt_n || $opt_a || $opt_d
 }
-Linux::usermod->add($opt_a) and exit if $opt_a;
-Linux::usermod->del($opt_d) and exit if $opt_d;
-$user = Linux::usermod->new($opt_u);
+usermod->add($opt_a) and exit if $opt_a;
+usermod->del($opt_d) and exit if $opt_d;
+$user = usermod->new($opt_u);
 die "No such user\n" unless  defined $user->get(uid);
 $user->set(password, $opt_p) if $opt_p;
 $user->set(comment, $opt_c) if $opt_c;
