@@ -5,7 +5,7 @@ use Carp;
 use Tie::File;
 use Fcntl qw(:Fcompat :DEFAULT :flock); 
 use vars qw($VERSION);
-$VERSION = 0.63;
+$VERSION = 0.64;
 
 our $file_passwd = '/etc/passwd';
 our $file_shadow = '/etc/shadow';
@@ -19,13 +19,13 @@ my %field = (
 	HOME       => 5,	#The user's home directory
 	SHELL      => 6,	#The user's shell
 	SNAME	   => 7,	#The user's name in shadow file 
-	PASSWORD   => 8,	#A 13-character encrypted password.
-	LASTCHG	   => 9, 	#The number of days from January 1, 1970 of the last password changed date.
-	MIN	   => 10, 	#The minimum number of days required between password changes.
-	MAX 	   => 11,	#The maximum number of days the password is valid.
-	WARN 	   => 12,	#The number of days before expiring the password that the user is warned.
-	INACTIVE   => 13,	#The number of days of inactivity allowed for the user.
-	EXPIRE 	   => 14,	#The absolute date after which the login may no longer be used.
+	PASSWORD   => 8,	#A 13-character encrypted password
+	LASTCHG	   => 9, 	#The number of days since January 1, 1970 of the last password changed date
+	MIN	   => 10, 	#The minimum number of days required between password changes
+	MAX 	   => 11,	#The maximum number of days the password is valid
+	WARN 	   => 12,	#The number of days before expiring the password that the user is warned
+	INACTIVE   => 13,	#The number of days of inactivity allowed for the user
+	EXPIRE 	   => 14,	#The number of days since January 1, 1970 that account is disabled
 	FLAG	   => 15	#Currently not used.	
 );
 
@@ -331,29 +331,48 @@ use Linux::usermod;
 
 $user = Linux::usermod->new(username);
 
-#all fields are returned from the class method fields
+$user->get(gid); is equal to $user->get(3);
 
-$user->get(gid); #or the same $user->get(3);
-$user->get(uid); #the same $user->get(2);
-$user->get(shell); #the same $user->get(6);
-$user->get(ppassword); #passwd file 
-$user->get(password); #shadow file - the encoded password
+$user->get(uid); is equal to $user->get(2);
 
+lock and unlock user account
+
+$user->lock();
+$user->unlock();
+
+get password(passwd file)
+
+$user->get(ppassword);
+
+get encoded password(shadow file)
+
+$user->get(password); 
+
+set encoded password
 $user->set(password); 
+
 $user->set(shell);
 
 Linux::usermod->add(username);
 
-#or
+or
 
 Linux::usermod->add(username, password, uid, gid, comment, home, shell);
 
-#where the password goes in shadow file and gid becomes equal to uid unless specified
-#and uid is becoming the first unreserved number after 1000 unless specified
+where the password goes in shadow file and gid becomes 
+equal to uid unless specified and uid is becoming the 
+first unreserved number after 1000 unless specified
 
 Linux::usermod->del(username);
 
+all fields are returned from the class method fields
 print $user->get($_) for (Linux::usermod->fields);
+
+change passwd and shadow files
+
+$Linux::usermod::file_passwd = "./my_passwd";
+$Linux::usermod::file_shadow = "./my_shadow";
+
 
 =head1 DESCRIPTION
 
@@ -384,13 +403,15 @@ they may be (username, password, uid, gid, comment, home, shell)
 
 Class method - removes user account
 
-=item B<tobsd> 
-	converts user fields in shadow / master.passwd file to bsd style
 
+=item B<tobsd> 
+
+converts user fields in shadow / master.passwd file to bsd style
 
 =item B<get> 
-	get one of the following fields:
-	
+
+get one of the following fields:
+
 =over 4
 
 =item B<NAME>		
@@ -421,7 +442,7 @@ or 7  - The user's name in shadow file
 or 8  - The 13-character encoded password
 
 =item B<LASTCHG>	
-or 9  - The number of days from January 1, 1970 of the last password changed date
+or 9  - The number of days since January 1, 1970 of the last password changed date
 
 =item B<MIN>		
 or 10 - The minimum number of days required between password changes
@@ -436,7 +457,7 @@ or 12 - The number of days before expiring the password that the user is warned
 or 13 - The number of days of inactivity allowed for the user
 
 =item B<EXPIRE>		
-or 14 - The absolute date after which the login may no longer be used
+or 14 - The number of days since January 1, 1970 that account is disabled
 
 =item B<FLAG>		
 or 15 - Currently not used
@@ -466,6 +487,8 @@ Unlock user account (removes '!' from the beginning of the encoded password)
 =item B<users>
 
 Class method - return hash which keys are all users, teken from $file_passwd
+
+=back
 
 =head1 FILES
 
