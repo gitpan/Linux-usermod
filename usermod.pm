@@ -593,7 +593,7 @@ Linux::usermod - modify user and group accounts
 
   #set group users
   @users = wq(user1 user2);
-  $grp->set(users, \@users);
+  $grp->set(users, "@users");
   
   Linux::usermod->add(username);
 
