@@ -5,7 +5,7 @@ use Carp;
 use Tie::File;
 use Fcntl qw(:Fcompat :DEFAULT :flock); 
 use vars qw($VERSION);
-$VERSION = 0.64;
+$VERSION = 0.65;
 
 our $file_passwd = '/etc/passwd';
 our $file_shadow = '/etc/shadow';
@@ -169,13 +169,13 @@ sub add {
 			$fields{password} = _gen_pass($_) if $_;
 		}
 		if($c == 3){
-			$_ == '' and $_ = 1000;
+			$_ eq '' and $_ = 1000;
 		 	croak "wrong uid" unless /^\d+$/;
 			croak "wrong uid" if $_ > 65535 or $_ < 1;
 			$fields{uid} = $_ || 1000;
 		}
 		if($c == 4){
-			$_ == '' and $_ = 1000;
+			$_ eq '' and $_ = 1000;
 			croak "wrong gid" unless /^\d+$/;
 			if(/^\d+$/){ croak "wrong gid" if $_ > 65535 or $_ < 1 }
 			$fields{gid} = $_ || $fields{uid};
@@ -230,6 +230,7 @@ sub del{
 	@old = _io_file("$file_shadow", '', 'r');
 	/^(.[^:]*):/ and $1 eq $username or push @new, $_ for @old;
 	_io_file("$file_shadow", \@new, 'w');
+	return 1
 }
 
 sub tobsd{
@@ -253,6 +254,7 @@ sub tobsd{
 		s/.*/$user/;
 	}
 	_io_file("$file_shadow", \@file, 'w');
+	return 1
 }
 
 sub _io_file{
@@ -263,20 +265,23 @@ sub _io_file{
 	croak $! unless -f $file;
 	croak "posible flags: r/w/a" unless $flag =~ /^(r|w|a)$/;
 	if($flag eq 'r'){
-		tie @file, 'Tie::File', $file, mode => O_RDONLY | LOCK_EX;
+		tie @file, 'Tie::File', $file, mode => O_RDONLY | LOCK_EX 
+			or croak "can't open_r $file";
 		@retval = @file;
 		untie @file;
 		return @retval
 	}
 	if($flag eq 'w'){
-		tie @file, 'Tie::File', $file, mode => O_RDWR | LOCK_EX;
+		tie @file, 'Tie::File', $file, mode => O_RDWR | LOCK_EX
+			or croak "can't open_w $file";
 		@file = ();
 		push @file, "$_\n" for @{$newvals};
 		untie @file;
 		return 1
 	}
 	if($flag eq 'a'){
-		tie @file, 'Tie::File', $file, mode => O_RDWR | LOCK_EX;
+		tie @file, 'Tie::File', $file, mode => O_RDWR | LOCK_EX
+			or croak "can't open_a $file";
 		push @file, "$_\n" for @{$newvals};
 		untie @file;
 		return 1
